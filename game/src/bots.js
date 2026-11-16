@@ -25,6 +25,11 @@ function nameSprite(name, team) {
   c.width = 256;
   c.height = 48;
   const g = c.getContext('2d');
+  // A dark chip behind the name, so it reads over any background.
+  g.fillStyle = 'rgba(12, 10, 16, 0.72)';
+  g.beginPath();
+  g.roundRect(28, 6, 200, 36, 6);
+  g.fill();
   g.font = 'bold 26px system-ui, sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
@@ -38,16 +43,26 @@ function nameSprite(name, team) {
 }
 
 export function createBots(scene, colliders, rng) {
+  // Muted uniforms (not flat bright bodies): EMBER dark olive/khaki,
+  // LANTERN dark slate teal-grey. The team reads from the accent vest bar
+  // and the name sprite, not from a toy-bright torso.
   const teamMat = {
-    ember: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.ember), roughness: 0.6, metalness: 0.05 }),
-    lantern: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.teal), roughness: 0.6, metalness: 0.05 }),
+    ember: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.olive), roughness: 0.85, metalness: 0.02 }),
+    lantern: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.slate), roughness: 0.85, metalness: 0.02 }),
   };
-  const headMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.accent), roughness: 0.45, metalness: 0.1 });
-  const legMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.hairline), roughness: 0.85 });
-  const torsoGeo = new THREE.BoxGeometry(0.52, 0.78, 0.3);
-  const headGeo = new THREE.SphereGeometry(0.155, 12, 10);
-  const legGeo = new THREE.BoxGeometry(0.2, 0.7, 0.24);
-  const gunGeo = new THREE.BoxGeometry(0.07, 0.09, 0.5);
+  const accentMat = {
+    ember: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.ember), roughness: 0.7, metalness: 0.05 }),
+    lantern: new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.teal), roughness: 0.7, metalness: 0.05 }),
+  };
+  const skinMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.skin), roughness: 0.7, metalness: 0.0 });
+  const legMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.charcoal), roughness: 0.9 });
+  const gunmetal = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4d4d55'), roughness: 0.4, metalness: 0.65 });
+  const gunPolymer = new THREE.MeshStandardMaterial({ color: new THREE.Color('#38382f'), roughness: 0.85, metalness: 0.05 });
+  // Humanoid proportions (not a toy): a small head on a long torso and legs.
+  const torsoGeo = new THREE.BoxGeometry(0.46, 0.85, 0.3);
+  const headGeo = new THREE.SphereGeometry(0.11, 12, 10);
+  const helmetGeo = new THREE.SphereGeometry(0.13, 12, 8);
+  const legGeo = new THREE.BoxGeometry(0.18, 0.8, 0.22);
   const flashGeo = new THREE.PlaneGeometry(0.22, 0.22);
   const flashMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.accent), transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
 
@@ -67,25 +82,49 @@ export function createBots(scene, colliders, rng) {
   function makeBot(name, team, index) {
     const group = new THREE.Group();
     const torso = new THREE.Mesh(torsoGeo, teamMat[team]);
-    torso.position.y = 1.0;
+    torso.position.y = 0.95;
     torso.userData.part = 'torso';
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 1.53;
+    // A small head, mostly covered by a helmet dome; a dark visor strip
+    // across the front reads as a face, not a bare ball.
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 1.56;
     head.userData.part = 'head';
+    const helmet = new THREE.Mesh(helmetGeo, teamMat[team]);
+    helmet.scale.set(1, 0.72, 1);
+    helmet.position.y = 1.6;
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.045, 0.05), legMat);
+    visor.position.set(0, 1.56, -0.09);
+    // A chest rig in the team's accent colour, so the team reads at a glance
+    // without painting the whole body bright.
+    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.06), accentMat[team]);
+    vest.position.set(0, 1.08, -0.16);
     const legL = new THREE.Mesh(legGeo, legMat);
-    legL.position.set(-0.13, 0.35, 0);
+    legL.position.set(-0.12, 0.4, 0);
     const legR = new THREE.Mesh(legGeo, legMat);
-    legR.position.set(0.13, 0.35, 0);
-    const gun = new THREE.Mesh(gunGeo, legMat);
-    gun.position.set(0.18, 1.05, -0.3);
+    legR.position.set(0.12, 0.4, 0);
+    // A real gun, not a stick: receiver + barrel + magazine + stock, held
+    // across the chest in both hands.
+    const gun = new THREE.Group();
+    const gRecv = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.3), gunmetal);
+    const gBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.3, 8), gunmetal);
+    gBarrel.rotation.x = Math.PI / 2;
+    gBarrel.position.set(0, 0.01, -0.28);
+    const gMag = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.14, 0.07), gunPolymer);
+    gMag.position.set(0, -0.1, -0.05);
+    gMag.rotation.x = 0.18;
+    const gStock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.18), gunPolymer);
+    gStock.position.set(0, -0.01, 0.22);
+    gun.add(gRecv, gBarrel, gMag, gStock);
+    gun.position.set(0.1, 1.02, -0.3);
+    gun.rotation.y = 0.12;
     const flash = new THREE.Mesh(flashGeo, flashMat);
-    flash.position.set(0.18, 1.05, -0.62);
+    flash.position.set(0.1, 1.03, -0.62);
     flash.visible = false;
-    group.add(torso, head, legL, legR, gun, flash, nameSprite(name, team));
+    group.add(torso, head, helmet, visor, vest, legL, legR, gun, flash, nameSprite(name, team));
     group.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     scene.add(group);
     const bot = {
-      name, team, group, torso, head, flash, index,
+      name, team, group, torso, head, flash, legL, legR, index,
       pos: group.position, yaw: 0, health: 100, alive: true,
       state: 'ROUTE', stateTime: 0, route: [], routeIdx: 0,
       target: null, lastKnown: new THREE.Vector3(), canSee: false,
@@ -95,7 +134,7 @@ export function createBots(scene, colliders, rng) {
       stuckPos: new THREE.Vector3(), stuckTime: 0,
       carrier: false, channel: 0, channelAt: null,
       weapon: index % 3 === 0 ? 'smg' : 'rifle',
-      flashLeft: 0, fall: 0,
+      flashLeft: 0, fall: 0, walkPhase: 0,
       kills: 0, deaths: 0, damage: 0, headshots: 0, assists: 0,
     };
     torso.userData.bot = bot;
@@ -262,6 +301,17 @@ export function createBots(scene, colliders, rng) {
       }
       default:
         break;
+    }
+    // A walk cycle: the legs swing while the bot moves, and ease back to
+    // straight when it holds. It reads as a soldier walking, not a statue.
+    if (bot.state === 'ROUTE' || bot.state === 'ROTATE') {
+      bot.walkPhase += dt * 9;
+      const swing = 0.35 * Math.sin(bot.walkPhase);
+      bot.legL.rotation.x = swing;
+      bot.legR.rotation.x = -swing;
+    } else {
+      bot.legL.rotation.x *= Math.max(0, 1 - dt * 8);
+      bot.legR.rotation.x *= Math.max(0, 1 - dt * 8);
     }
     bot.group.rotation.y = bot.yaw;
     bot.group.position.set(bot.pos.x, 0, bot.pos.z);

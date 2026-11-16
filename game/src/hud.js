@@ -154,11 +154,11 @@ export function createHud() {
       mm.clearRect(0, 0, W, H);
       mm.fillStyle = 'rgba(20, 16, 28, 0.85)';
       mm.fillRect(0, 0, W, H);
-      mm.fillStyle = '#4a3a28';
+      mm.fillStyle = '#6e5238';
       for (const w of map.wallRects) mm.fillRect(X(w.x - w.w / 2), Z(w.z - w.d / 2), w.w * sx, w.d * sz);
       for (const key of ['A', 'B']) {
         const s = map.sites[key];
-        mm.fillStyle = key === 'A' ? '#2a9d8f' : '#e86a2a';
+        mm.fillStyle = key === 'A' ? '#3d8a80' : '#c96a2e';
         mm.beginPath();
         mm.arc(X(s.x), Z(s.z), 7, 0, Math.PI * 2);
         mm.fill();
@@ -178,7 +178,7 @@ export function createHud() {
         const isPlayer = a.kind === 'player';
         const seen = isPlayer || a.team === 'ember' || (seenAt && seenAt(a) > 0);
         if (!seen) continue;
-        mm.fillStyle = isPlayer ? '#ffffff' : a.team === 'ember' ? '#e86a2a' : '#2a9d8f';
+        mm.fillStyle = isPlayer ? '#ffffff' : a.team === 'ember' ? '#c96a2e' : '#3d8a80';
         mm.beginPath();
         mm.arc(X(a.pos.x), Z(a.pos.z), isPlayer ? 4 : 3, 0, Math.PI * 2);
         mm.fill();

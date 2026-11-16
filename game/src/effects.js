@@ -50,7 +50,7 @@ export function createEffects(scene, camera) {
   pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
   pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
   const points = new THREE.Points(pGeo, new THREE.PointsMaterial({
-    size: 0.14, vertexColors: true, transparent: true, opacity: 0.95,
+    size: 0.18, vertexColors: true, transparent: true, opacity: 0.95,
     depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
   }));
   points.frustumCulled = false;
@@ -77,18 +77,19 @@ export function createEffects(scene, camera) {
   let boomLeft = 0;
 
   // Bomb beacon: a device + a fresnel rim shell (shader-programming Pattern 4)
-  // that pulses while the bomb is armed.
+  // that pulses while the bomb is armed. The shell is large (1.25 m radius)
+  // and the lamp is bright, so the plant shot sells the objective at a glance.
   const beaconGroup = new THREE.Group();
   const device = new THREE.Mesh(
-    new THREE.BoxGeometry(0.34, 0.2, 0.34),
+    new THREE.BoxGeometry(0.44, 0.24, 0.44),
     new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.ink), roughness: 0.4, metalness: 0.5 }),
   );
-  device.position.y = 0.1;
+  device.position.y = 0.12;
   const beaconLamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 10, 8),
+    new THREE.SphereGeometry(0.1, 10, 8),
     new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff2a1a') }),
   );
-  beaconLamp.position.y = 0.26;
+  beaconLamp.position.y = 0.32;
   const shellMat = new THREE.ShaderMaterial({
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -96,14 +97,14 @@ export function createEffects(scene, camera) {
     side: THREE.FrontSide,
     uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color('#ff5a2a') } },
     vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }',
-    fragmentShader: 'uniform float uTime; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - clamp(dot(normalize(vN), normalize(vV)), 0.0, 1.0), 3.0); float pulse = 0.55 + 0.45 * sin(uTime * 6.0); gl_FragColor = vec4(uColor * f * pulse, f * pulse * 0.6); }',
+    fragmentShader: 'uniform float uTime; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - clamp(dot(normalize(vN), normalize(vV)), 0.0, 1.0), 3.0); float pulse = 0.55 + 0.45 * sin(uTime * 6.0); gl_FragColor = vec4(uColor * f * pulse, f * pulse * 0.85); }',
   });
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.8, 20, 14), shellMat);
-  shell.position.y = 0.5;
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1.25, 24, 16), shellMat);
+  shell.position.y = 0.6;
   beaconGroup.add(device, beaconLamp, shell);
   beaconGroup.visible = false;
   scene.add(beaconGroup);
-  const beaconLight = new THREE.PointLight(new THREE.Color('#ff5a2a'), 0, 10);
+  const beaconLight = new THREE.PointLight(new THREE.Color('#ff5a2a'), 0, 14);
   scene.add(beaconLight);
   let beaconOn = false;
 
@@ -237,7 +238,7 @@ export function createEffects(scene, camera) {
       if (beaconOn) {
         shellMat.uniforms.uTime.value = time;
         beaconLamp.visible = Math.sin(time * 8) > -0.2;
-        beaconLight.intensity = 6 + 4 * Math.sin(time * 6);
+        beaconLight.intensity = 14 + 8 * Math.sin(time * 6);
       }
       // Trauma shake decays in real time and writes the camera offset only.
       if (trauma > 0) {

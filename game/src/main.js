@@ -36,7 +36,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
+renderer.toneMappingExposure = 1.45;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -664,18 +664,26 @@ function runShot(name) {
   hud.radio('Contact at TOWER', 'ember');
   hud.radio('Rotating to B', 'lantern');
   if (name === 'combat') {
-    // Player mid-lane, a LANTERN bot in the open east of the tower, mid-burst.
-    // Two chest hits leave it alive and visible, red-flashing, tracer + muzzle
-    // flash still in the air when the frame freezes.
-    body.position.set(0, 0, 8);
+    // Player mid-lane, pulled back so the lantern tower reads in frame.
+    // TWO LANTERN bots visible: Flint east of the tower (the one the player
+    // is shooting, mid-burst, red-flashing, tracer + muzzle glow still in
+    // the air when the frame freezes) and Moth west of it, facing the player
+    // with its own muzzle flash lit.
+    body.position.set(0, 0, 11);
     body.yaw = 0;
     body.pitch = 0;
     const enemy = bots.bots.find((b) => b.team === 'lantern');
-    enemy.pos.set(4, 0, 3);
+    enemy.pos.set(3.5, 0, 5);
     enemy.group.position.copy(enemy.pos);
     enemy.state = 'HOLD';
-    enemy.yaw = Math.atan2(4, -5); // face the player
+    enemy.yaw = Math.atan2(3.5, -6); // face the player
     enemy.group.rotation.y = enemy.yaw;
+    const second = bots.bots.find((b) => b.team === 'lantern' && b.name === 'Moth');
+    second.pos.set(-3, 0, 4.5);
+    second.group.position.copy(second.pos);
+    second.state = 'HOLD';
+    second.yaw = Math.atan2(-3, -6.5); // face the player
+    second.group.rotation.y = second.yaw;
     settle(20);
     weapons.equip('rifle');
     me.ammo.rifle = { mag: 30, reserve: 90 };
@@ -687,6 +695,14 @@ function runShot(name) {
       if (r < 1) settle(8);
     }
     settle(1);
+    // Moth's muzzle flash is lit last: step() would have extinguished it
+    // (flashLeft decays per step), and paintTwiceThenReady never steps, so
+    // it stays lit in the frozen frame.
+    second.flashLeft = 0.06;
+    second.flash.visible = true;
+    // Frame the final shot on the tower between the two bots, not on Flint
+    // alone: the landmark, the shooter and the second bot all in view.
+    aimAt(new THREE.Vector3(0.5, 2.0, 1.5));
   } else if (name === 'buy') {
     body.position.set(0, 0, 15);
     body.yaw = 0;

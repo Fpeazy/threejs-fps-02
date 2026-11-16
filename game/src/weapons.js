@@ -4,6 +4,13 @@
 // Boar 12 0.85 s (2 close pumps), Longshadow L9 0.00 s (1 body shot at 88? no:
 // 2 shots, 1.30 s — the headshot is the one-shot kill). Fire timing runs on a
 // scheduled clock (Pattern 1): shots are scheduled, never reset to "now".
+//
+// The viewmodels are built as real guns, not slabs: each has a receiver,
+// barrel, magazine, stock, grip, sights and the small parts that sell it
+// (charging handle, ejection port, trigger guard, muzzle device). Parts are
+// merged boxes/cylinders — the realism comes from correct proportions and
+// parts, not polygon count. Materials differ by part: gunmetal is slightly
+// glossy, polymer is matte, wood is warm; never flat black.
 import * as THREE from 'three';
 import { PALETTE } from './palette.js';
 
@@ -24,44 +31,115 @@ export function falloff(def, dist) {
 }
 
 export function createWeapons(camera) {
-  const grip = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.hairline), roughness: 0.7, metalness: 0.2 });
-  const body = new THREE.MeshStandardMaterial({ color: new THREE.Color('#2e2a33'), roughness: 0.45, metalness: 0.6 });
-  const wood = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.brick), roughness: 0.8, metalness: 0.05 });
-  const accent = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.accent), roughness: 0.4, metalness: 0.4 });
+  // Gun materials: gunmetal (slightly glossy), polymer (matte), wood (warm),
+  // plus a near-black for recesses. Slightly different tones per part so the
+  // shape reads in the dusk light instead of one flat black slab.
+  const gunmetal = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4d4d55'), roughness: 0.35, metalness: 0.7 });
+  const gunmetalDark = new THREE.MeshStandardMaterial({ color: new THREE.Color('#2e2e35'), roughness: 0.4, metalness: 0.65 });
+  const polymer = new THREE.MeshStandardMaterial({ color: new THREE.Color('#38382f'), roughness: 0.85, metalness: 0.05 });
+  const polymerTan = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4a4030'), roughness: 0.85, metalness: 0.05 });
+  const wood = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.brick), roughness: 0.75, metalness: 0.05 });
+  const recess = new THREE.MeshStandardMaterial({ color: new THREE.Color('#0e0d10'), roughness: 0.6, metalness: 0.3 });
+  const glass = new THREE.MeshStandardMaterial({ color: new THREE.Color('#1a2a33'), roughness: 0.15, metalness: 0.9 });
 
+  // A part is a mesh in the gun's local space: the gun points down -Z, the
+  // trigger sits near the origin, the muzzle is the most negative z.
   function buildModel(id) {
     const g = new THREE.Group();
-    const add = (geo, mat, x, y, z) => {
+    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z);
+      m.rotation.set(rx, ry, rz);
       g.add(m);
       return m;
     };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const cyl = (r, len, seg = 10) => new THREE.CylinderGeometry(r, r, len, seg);
+    // A trigger guard reads as a gun at a glance: a small loop under the receiver.
+    const guard = (x, y, z) => {
+      const t = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.007, 6, 12), gunmetalDark);
+      t.position.set(x, y, z);
+      t.rotation.y = Math.PI / 2;
+      g.add(t);
+    };
+    let muzzleZ = -0.5; // local z of the barrel tip; the flash sits here.
     if (id === 'pistol') {
-      add(new THREE.BoxGeometry(0.07, 0.09, 0.26), body, 0, 0, -0.1);
-      add(new THREE.BoxGeometry(0.06, 0.12, 0.07), grip, 0, -0.09, 0.05);
-      add(new THREE.BoxGeometry(0.02, 0.03, 0.05), accent, 0, 0.055, -0.2);
+      // Moth P4: a compact service pistol. Slide, frame, grip, sights.
+      add(box(0.055, 0.05, 0.24), gunmetal, 0, 0.01, -0.08); // slide
+      add(box(0.05, 0.045, 0.2), gunmetalDark, 0, -0.035, -0.06); // frame
+      add(box(0.048, 0.13, 0.06), polymer, 0, -0.1, 0.04, 0.25); // grip, raked back
+      add(box(0.012, 0.02, 0.012), recess, 0, 0.045, -0.18); // front sight
+      add(box(0.03, 0.018, 0.015), recess, 0, 0.045, 0.02); // rear sight
+      add(cyl(0.014, 0.03), gunmetalDark, 0, 0.01, -0.2, Math.PI / 2); // muzzle
+      guard(0, -0.055, -0.03);
+      muzzleZ = -0.21;
     } else if (id === 'smg') {
-      add(new THREE.BoxGeometry(0.08, 0.09, 0.4), body, 0, 0, -0.12);
-      add(new THREE.BoxGeometry(0.05, 0.05, 0.3), grip, 0, 0.02, -0.4);
-      add(new THREE.BoxGeometry(0.06, 0.14, 0.08), grip, 0, -0.1, 0.02);
-      add(new THREE.BoxGeometry(0.07, 0.06, 0.2), wood, 0, -0.02, 0.28);
+      // Wasp-9: short barrel, long straight magazine, vertical foregrip,
+      // a thin folding stock.
+      add(box(0.07, 0.085, 0.3), gunmetal, 0, 0, -0.06); // receiver
+      add(cyl(0.018, 0.22), gunmetalDark, 0, 0.01, -0.3, Math.PI / 2); // barrel
+      add(box(0.06, 0.06, 0.2), polymer, 0, -0.005, -0.26); // handguard
+      add(box(0.045, 0.2, 0.055), polymer, 0, -0.13, -0.1); // long straight mag
+      add(box(0.05, 0.1, 0.06), polymer, 0, -0.08, -0.3); // vertical foregrip
+      add(box(0.05, 0.11, 0.06), polymer, 0, -0.09, 0.06, 0.3); // pistol grip
+      add(box(0.03, 0.02, 0.16), gunmetalDark, 0, 0.005, 0.2); // folding stock, thin
+      add(box(0.012, 0.025, 0.012), recess, 0, 0.055, -0.38); // front sight
+      add(box(0.03, 0.02, 0.015), recess, 0, 0.055, 0.04); // rear sight
+      guard(0, -0.06, -0.01);
+      muzzleZ = -0.41;
     } else if (id === 'shotgun') {
-      add(new THREE.BoxGeometry(0.09, 0.09, 0.46), body, 0, 0, -0.12);
-      add(new THREE.BoxGeometry(0.07, 0.07, 0.34), wood, 0, -0.03, -0.34);
-      add(new THREE.BoxGeometry(0.07, 0.1, 0.24), wood, 0, -0.03, 0.3);
+      // Boar 12: a wide barrel over a tube magazine, a pump that slides on
+      // it, wood furniture, a bead sight.
+      add(box(0.075, 0.085, 0.34), gunmetal, 0, 0, -0.04); // receiver
+      add(cyl(0.028, 0.42), gunmetalDark, 0, 0.015, -0.32, Math.PI / 2); // barrel
+      add(cyl(0.02, 0.36), gunmetal, 0, -0.03, -0.3, Math.PI / 2); // mag tube
+      add(box(0.08, 0.07, 0.16), wood, 0, -0.03, -0.3); // pump
+      add(box(0.06, 0.1, 0.2), wood, 0, -0.01, 0.2); // wood stock
+      add(box(0.05, 0.11, 0.06), wood, 0, -0.09, 0.06, 0.3); // grip
+      add(new THREE.SphereGeometry(0.008, 8, 6), recess, 0, 0.05, -0.52); // bead sight
+      guard(0, -0.06, -0.01);
+      muzzleZ = -0.53;
     } else if (id === 'sniper') {
-      add(new THREE.BoxGeometry(0.08, 0.09, 0.5), body, 0, 0, -0.14);
-      add(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 10), accent, 0, 0.07, -0.12).rotation.x = Math.PI / 2;
-      add(new THREE.BoxGeometry(0.05, 0.05, 0.36), grip, 0, 0.03, -0.42);
-      add(new THREE.BoxGeometry(0.07, 0.09, 0.22), wood, 0, -0.02, 0.3);
+      // Longshadow L9: a long heavy barrel, a scope on mounts, a bolt handle,
+      // a long stock with a cheek rest.
+      add(box(0.07, 0.09, 0.36), gunmetal, 0, 0, -0.02); // receiver
+      add(cyl(0.017, 0.52), gunmetalDark, 0, 0.01, -0.44, Math.PI / 2); // long barrel
+      add(box(0.065, 0.065, 0.26), polymer, 0, -0.005, -0.3); // handguard
+      add(cyl(0.032, 0.2, 12), gunmetalDark, 0, 0.075, -0.06, Math.PI / 2); // scope tube
+      add(cyl(0.038, 0.03, 12), gunmetalDark, 0, 0.075, -0.15, Math.PI / 2); // objective bell
+      add(box(0.02, 0.03, 0.02), recess, 0, 0.045, -0.02); // scope mount
+      add(box(0.02, 0.03, 0.02), recess, 0, 0.045, -0.1); // scope mount
+      add(cyl(0.012, 0.07, 8), gunmetal, 0.05, 0.01, 0.04, 0, 0, Math.PI / 2.4); // bolt handle
+      add(box(0.045, 0.12, 0.07), polymer, 0, -0.1, -0.06, 0.12); // magazine
+      add(box(0.06, 0.11, 0.24), polymerTan, 0, -0.01, 0.22); // stock + cheek rest
+      add(box(0.05, 0.11, 0.06), polymer, 0, -0.09, 0.06, 0.3); // pistol grip
+      guard(0, -0.06, -0.01);
+      muzzleZ = -0.7;
     } else {
-      add(new THREE.BoxGeometry(0.09, 0.1, 0.42), body, 0, 0, -0.1);
-      add(new THREE.BoxGeometry(0.045, 0.045, 0.4), grip, 0, 0.025, -0.38);
-      add(new THREE.BoxGeometry(0.075, 0.08, 0.22), grip, 0, -0.02, 0.3);
+      // Juniper R7: the cover rifle. Receiver, handguard with vent strips,
+      // barrel + muzzle brake, curved magazine, stock, grip, iron sights,
+      // charging handle, ejection port, trigger guard.
+      add(box(0.07, 0.09, 0.3), gunmetal, 0, 0, -0.04); // receiver
+      add(box(0.075, 0.07, 0.26), polymer, 0, -0.005, -0.28); // handguard
+      add(box(0.078, 0.012, 0.22), gunmetalDark, 0, 0.028, -0.28); // handguard top rail
+      add(box(0.01, 0.03, 0.18), recess, 0.038, 0, -0.28); // vent strip, right
+      add(box(0.01, 0.03, 0.18), recess, -0.038, 0, -0.28); // vent strip, left
+      add(cyl(0.019, 0.3), gunmetalDark, 0, 0.01, -0.36, Math.PI / 2); // barrel
+      add(box(0.035, 0.035, 0.06), gunmetalDark, 0, 0.01, -0.5); // muzzle brake
+      add(box(0.05, 0.15, 0.08), polymer, 0, -0.1, -0.07, 0.18); // curved magazine
+      add(box(0.06, 0.1, 0.22), polymer, 0, -0.01, 0.2); // stock
+      add(box(0.065, 0.12, 0.03), polymerTan, 0, -0.01, 0.32); // butt plate
+      add(box(0.05, 0.11, 0.06), polymer, 0, -0.09, 0.07, 0.3); // pistol grip
+      add(box(0.015, 0.035, 0.015), recess, 0, 0.055, -0.44); // front sight post
+      add(box(0.035, 0.03, 0.02), recess, 0, 0.06, 0.08); // rear sight
+      add(box(0.02, 0.02, 0.05), gunmetalDark, 0.045, 0.015, -0.02); // charging handle
+      add(box(0.004, 0.03, 0.09), recess, 0.036, 0.01, -0.06); // ejection port
+      guard(0, -0.06, -0.01);
+      muzzleZ = -0.53;
     }
     g.position.set(0.26, -0.26, -0.5);
-    g.scale.setScalar(0.8);
+    g.scale.setScalar(0.72);
+    g.userData.muzzleZ = muzzleZ;
     return g;
   }
 
@@ -72,7 +150,8 @@ export function createWeapons(camera) {
     camera.add(models[id]);
   }
 
-  // Muzzle flash: a soft radial glow, not a flat card.
+  // Muzzle flash: a soft radial glow, not a flat card. Its z follows the
+  // equipped weapon's muzzle, so it never floats in front of a short gun.
   const flashCanvas = document.createElement('canvas');
   flashCanvas.width = 64;
   flashCanvas.height = 64;
@@ -101,6 +180,12 @@ export function createWeapons(camera) {
   };
 
   function def() { return WEAPONS[state.id]; }
+
+  function placeFlash() {
+    // Camera-space z of the muzzle tip: the model sits at z=-0.5, scaled 0.72.
+    flash.position.z = -0.5 + models[state.id].userData.muzzleZ * 0.72 - 0.02;
+  }
+  placeFlash();
 
   function step(dt, now) {
     state.flash = Math.max(0, state.flash - dt);
@@ -138,6 +223,7 @@ export function createWeapons(camera) {
       state.nextShotAt = 0;
       state.zoomed = false;
       models[id].visible = true;
+      placeFlash();
       return true;
     },
     show() { models[state.id].visible = true; },
