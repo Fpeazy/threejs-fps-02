@@ -40,7 +40,6 @@ export function createWeapons(camera) {
   const polymerTan = new THREE.MeshStandardMaterial({ color: new THREE.Color('#4a4030'), roughness: 0.85, metalness: 0.05 });
   const wood = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.brick), roughness: 0.75, metalness: 0.05 });
   const recess = new THREE.MeshStandardMaterial({ color: new THREE.Color('#0e0d10'), roughness: 0.6, metalness: 0.3 });
-  const glass = new THREE.MeshStandardMaterial({ color: new THREE.Color('#1a2a33'), roughness: 0.15, metalness: 0.9 });
 
   // A part is a mesh in the gun's local space: the gun points down -Z, the
   // trigger sits near the origin, the muzzle is the most negative z.
